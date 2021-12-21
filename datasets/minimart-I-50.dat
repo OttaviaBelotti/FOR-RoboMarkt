@@ -1,11 +1,11 @@
-param n :=	50	;			
-param range :=	7	;			
-param Vc :=	1	;			
-param Fc :=	50	;			
-param capacity :=	10	;			
-					
+param n :=	50	;
+param range :=	7	;
+param Vc :=	1	;
+param Fc :=	50	;
+param capacity :=	10	;
+
 param:	Cx	Cy	Dc	usable	:=
-1	9	22	10	1	
+1	9	22	10	1
 2	22	5	3	1	
 3	8	17	8	1	
 4	2	22	10	1	
