@@ -14,7 +14,7 @@ datFile = "datasets/minimart-I-50.dat"
 datFile1 = "datasets/minimart-I-100.dat"
 datFile2 = "datasets/minimart-l-5.dat"
 
-datContent = [i.strip().split() for i in open(datFile2).readlines()]
+datContent = [i.strip().split() for i in open(datFile).readlines()]
 
 param = []
 for i in datContent[:5]:
