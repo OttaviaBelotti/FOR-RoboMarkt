@@ -403,7 +403,7 @@ def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_po
 
 
 # define the total iterations
-n_iter = 100
+n_iter = 100000
 # define the population size
 n_pop = 50
 # crossover rate
@@ -416,7 +416,7 @@ building_cost, built_stores = calc_stores(location, distance, range_param)
 print(str(built_stores))
 print(str(built_stores))
 
-best, score = genetic_algorithm(objective_function, mtsp, built_stores, distance, capacity, n_iter,
+best, score = genetic_algorithm(objective_function, cost_of_multiple_routes, built_stores, distance, capacity, n_iter,
                                 n_pop, r_cross,
                                 r_mut)
 
