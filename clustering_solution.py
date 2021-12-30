@@ -70,7 +70,7 @@ def cost_of_route(this_route):
 datFile = "datasets/minimart-I-50.dat"
 datFile1 = "datasets/minimart-I-100.dat"
 
-datContent = [i.strip().split() for i in open(datFile1).readlines()]
+datContent = [i.strip().split() for i in open(datFile).readlines()]
 
 param = []
 for i in datContent[:5]:

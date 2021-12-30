@@ -6,6 +6,7 @@ from sys import stdout as out
 from numpy import sqrt
 from numpy.random import randint
 from numpy.random import rand
+from numpy.random import default_rng
 from mip import Model, xsum, minimize, BINARY
 from itertools import product
 from math import ceil
@@ -193,7 +194,8 @@ def tsp(selected_stores, store_distance):
     else:
         print("no solution:\t + selected_stores")
         exit(1)
-    return model2.objective_value, sub_route
+
+    return fc + vc * model2.objective_value, sub_route
 
 
 def mtsp(route, distance_matrix):
@@ -227,9 +229,10 @@ def cost_of_multiple_routes(this_route, distance):
 
 # objective function
 def objective_function(length):
-    return length
+    return 1 / (1 + length)
 
 
+''''
 # tournament selection
 def selection(pop, scores, k=3):
     # first random selection
@@ -239,6 +242,19 @@ def selection(pop, scores, k=3):
         if scores[ix] < scores[selection_ix]:
             selection_ix = ix
     return pop[selection_ix]
+'''
+
+
+def selection(population, scores):
+    # Computes the totallity of the population fitness
+    score_sum = sum(scores)
+
+    # Computes for each chromosome the probability
+    chromosome_probabilities = [(score / score_sum) for score in scores]
+
+    # Selects one chromosome based on the computed probabilities
+    b = np.random.choice(np.arange(0, len(population)), p=chromosome_probabilities)
+    return population[b]
 
 
 def single_point_crossover(p1, p2, i):
@@ -250,27 +266,59 @@ def single_point_crossover(p1, p2, i):
 
 # crossover two parents to create two children
 def crossover(p1, p2, r_cross):
-    c1, c2 = p1.copy(), p2.copy()
     # check for recombination
     if rand() < r_cross:
         # select crossover point that is not on the end of the string
-        pt = randint(1, len(p1) - 2)
+        if len(p2) != 14 or len(p1) != 14:
+            print("lenp1" + str(len(p1)))
+            print("lenp2" + str(len(p2)))
+        pt1 = randint(1, len(p1) - 1)
+        pt2 = randint(1, len(p1) - 1)
+        if (pt2 < pt1):
+            temp = pt1
+            pt1 = pt2
+            pt2 = temp
         # perform crossover
-        for i in range(pt):
-            c1, c2 = single_point_crossover(c1, c2, i)
+        c1, c2 = [], []
+        for i in range(pt1):
+            c1.append(p1[i])
+            c2.append(p2[i])
 
-    return [c1, c2]
+        for i in range(pt1, pt2 + 1):
+            c1.append(p2[i])
+            c2.append(p1[i])
+
+        for i in range(pt2 + 1, len(p1)):
+            c1.append(p1[i])
+            c2.append(p2[i])
+        return [c1, c2]
+    return [p1, p2]
 
 
+def mutation(p, r_mut):
+    if rand() < r_mut:
+        res = p.copy()
+        i = randint(0, len(res))
+        j = randint(0, len(res))
+        temp = res[i]
+        res[i] = res[j]
+        res[j] = temp
+        return res
+    return p
+
+
+'''
 # mutation operator
 def mutation(p, r_mut):
     if rand() < r_mut:
         i = randint(0, len(p))
         j = randint(0, len(p))
-        temp = p[i]
-        p[i] = p[j]
-        p[j] = temp
-    return p
+        temp = p.pop(i)
+        p.insert(i, p[j])
+        p.pop(j)
+        p.insert(j, temp)
+    return list(p)
+'''
 
 
 # todo
@@ -280,8 +328,9 @@ def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_po
     stores_no_depot = stores[1:len(stores)]
     n_truck = ceil(len(stores_no_depot) / capacity)
     c, size_combinations = route_size_combinations(len(stores_no_depot), n_truck)
-    size_combinations = list(filter(lambda comb: all(x <= capacity for x in comb), size_combinations))
-
+    # size_combinations = list(filter(lambda comb: all(x <= capacity for x in comb), size_combinations))
+    size_combinations = [[4, 10]]
+    stores_no_depot = [44, 21, 8, 1, 5, 23, 42, 35, 15, 41, 13, 11, 49, 39]
     start = 0
     start_route = []
     for j in size_combinations[0]:
@@ -292,6 +341,7 @@ def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_po
 
     best_cost, best = mtsp(start_route, distances)
     best_eval = objective(best_cost)
+    best_list_no_depot = stores_no_depot
 
     combination_counter = 0
     for combination in size_combinations:
@@ -300,7 +350,8 @@ def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_po
         route = []
         pop = []
         for i in range(n_pop):
-            pop.append(random.sample(stores_no_depot, len(stores_no_depot)))
+            # pop.append(random.sample(stores_no_depot, len(stores_no_depot)))
+            pop.append(mutation(stores_no_depot, 1))
             pop_route = []
             start = 0
             for j in combination:
@@ -315,19 +366,21 @@ def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_po
             # evaluate all candidates in the population
             costs = []
             evaluations = []
+            i = 0
             for c in route:
                 cost, route_model = mtsp(c, distances)
                 costs.append(cost)
                 evaluation = objective(cost)
                 evaluations.append(evaluation)
-                if evaluation < best_eval:
+                if cost < best_cost:
                     print("previous best:\t" + str(best))
                     print("previous best eval:\t" + str(best_eval))
                     print("total cost:\t" + str(best_cost))
-                    best, best_eval, best_cost = route_model, evaluation, cost
+                    best, best_eval, best_cost, best_list_no_depot = route_model, evaluation, cost, pop[i]
                     print("new best:\t" + str(best))
                     print("new best eval:\t" + str(best_eval))
                     print("total cost:\t" + str(best_cost))
+                i += 1
 
             # select parents
             selected = [selection(pop, evaluations) for _ in range(n_pop)]
@@ -339,18 +392,20 @@ def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_po
                 # crossover and mutation
                 for c in crossover(p1, p2, r_cross):
                     # mutation
-                    mutation(c, r_mut)
+                    c = mutation(c, r_mut)
                     # store for next generation
                     children.append(c)
+            children[n_pop - 1] = best_list_no_depot
+
             # replace population
             pop = children
     return [best, best_cost]
 
 
 # define the total iterations
-n_iter = 2000
+n_iter = 100
 # define the population size
-n_pop = 100
+n_pop = 50
 # crossover rate
 r_cross = 0.9
 # mutation rate
@@ -361,7 +416,7 @@ building_cost, built_stores = calc_stores(location, distance, range_param)
 print(str(built_stores))
 print(str(built_stores))
 
-best, score = genetic_algorithm(objective_function, cost_of_multiple_routes, built_stores, distance, capacity, n_iter,
+best, score = genetic_algorithm(objective_function, mtsp, built_stores, distance, capacity, n_iter,
                                 n_pop, r_cross,
                                 r_mut)
 
