@@ -1,4 +1,6 @@
 # genetic algorithm search of the one max optimization problem
+import random
+
 import numpy as np
 from sys import stdout as out
 from numpy import sqrt
@@ -6,6 +8,7 @@ from numpy.random import randint
 from numpy.random import rand
 from mip import Model, xsum, minimize, BINARY
 from itertools import product
+from math import ceil
 
 datFile = "datasets/minimart-I-50.dat"
 datFile1 = "datasets/minimart-I-100.dat"
@@ -37,6 +40,60 @@ for i in location:
     for j in location:
         temp.append(sqrt(pow(j[1] - i[1], 2) + pow(j[2] - i[2], 2)))
     distance.append(temp)
+
+    # Python3 program for the above approach
+    from itertools import combinations
+    import bisect
+
+
+    # Function to count all the possible
+    # combinations of K numbers having
+    # sum equals to N
+    def count_ways_util(n, k, sum, dp, arr, sub):
+        # Base Cases
+        if sum == n and k == 0:
+            if len(arr) == 0:
+                arr.append(sub)
+                return 1
+            i = bisect.bisect(arr, sub)
+            if arr[i - 1] != sub:
+                arr.insert(i, sub)
+            return 1
+
+        if sum >= n and k >= 0:
+            return 0
+
+        if k < 0:
+            return 0
+
+        # If the result is already memoised
+        if dp[sum][k] != -1:
+            if dp[sum][k] == 1:
+                bisect.insort(sub, n - sum)
+                i = bisect.bisect(arr, sub)
+                if arr[i - 1] != sub:
+                    arr.insert(i, sub)
+            return dp[sum][k]
+
+        # Recursive Calls
+        cnt = 0
+        for i in range(1, n + 1):
+            sub_copy = sub.copy()
+            bisect.insort(sub_copy, i)
+            cnt += count_ways_util(n, k - 1, sum + i, dp, arr, sub_copy)
+
+        # Returning answer
+        dp[sum][k] = cnt
+        return dp[sum][k]
+
+
+    def route_size_combinations(n, k):
+        dp = [[-1 for _ in range(k + 1)]
+              for _ in range(n + 1)]
+        arr = []
+        sub = []
+        c = count_ways_util(n, k, 0, dp, arr, sub)
+        return c, arr
 
 
 def calc_stores(location, distance, range_param):
@@ -74,6 +131,18 @@ def calc_stores(location, distance, range_param):
         if y[i].x:
             built_stores.append(i)
     return building_cost, built_stores
+
+
+def sub_distance(selected_stores, distance_matrix):
+    sub_distance_matrix = []
+    for i in set(range(len(distance_matrix))):
+        if selected_stores.count(i) > 0:
+            line = []
+            for j in set(range(len(distance_matrix[i]))):
+                if selected_stores.count(j) > 0:
+                    line.append(distance_matrix[i][j])
+            sub_distance_matrix.append(line)
+    return sub_distance_matrix
 
 
 def tsp(selected_stores, store_distance):
@@ -127,9 +196,38 @@ def tsp(selected_stores, store_distance):
     return model2.objective_value, sub_route
 
 
+def mtsp(route, distance_matrix):
+    cost = 0
+    route_model = []
+    for sub_route in route:
+        sub_dist = sub_distance(sub_route, distance_matrix)
+        c, sub = tsp(sub_route, sub_dist)
+        cost += c
+        route_model.append(sub)
+    return cost, route_model
+
+
+def cost_of_route(this_route, distance):
+    if len(this_route) == 0 or len(this_route) == 1:
+        return 0
+    cost = 0
+    for i in range(len(this_route) - 1):
+        cost += distance[this_route[i]][this_route[i + 1]]
+    cost += distance[this_route[len(this_route) - 1]][0]
+    cost = fc + vc * cost
+    return cost
+
+
+def cost_of_multiple_routes(this_route, distance):
+    cost = 0
+    for i in this_route:
+        cost += cost_of_route(i, distance)
+    return cost, this_route
+
+
 # objective function
 def objective_function(length):
-    return 1 / (1 + length)
+    return length
 
 
 # tournament selection
@@ -145,8 +243,8 @@ def selection(pop, scores, k=3):
 
 def single_point_crossover(p1, p2, i):
     # perform crossover
-    c1 = np.append(p1[:i] + p2[i:])
-    c2 = np.append(p2[:i] + p1[i:])
+    c1 = np.append(p1[:i], p2[i:])
+    c2 = np.append(p2[:i], p1[i:])
     return [c1, c2]
 
 
@@ -158,7 +256,7 @@ def crossover(p1, p2, r_cross):
         # select crossover point that is not on the end of the string
         pt = randint(1, len(p1) - 2)
         # perform crossover
-        for i in pt:
+        for i in range(pt):
             c1, c2 = single_point_crossover(c1, c2, i)
 
     return [c1, c2]
@@ -177,47 +275,95 @@ def mutation(p, r_mut):
 
 # todo
 # genetic algorithm
-def genetic_algorithm(objective, stores, distances, n_iter, n_pop, r_cross, r_mut):
+def genetic_algorithm(objective, mtsp, stores, distances, capacity, n_iter, n_pop, r_cross, r_mut):
     # initial population of random bitstring
-    pop = [randint(0, 2, n_bits).tolist() for _ in range(n_pop)]
-    # keep track of best solution
-    best, best_eval = 0, objective(pop[0])
-    # enumerate generations
-    for gen in range(n_iter):
-        # evaluate all candidates in the population
-        scores = [objective(c) for c in pop]
-        # check for new best solution
+    stores_no_depot = stores[1:len(stores)]
+    n_truck = ceil(len(stores_no_depot) / capacity)
+    c, size_combinations = route_size_combinations(len(stores_no_depot), n_truck)
+    size_combinations = list(filter(lambda comb: all(x <= capacity for x in comb), size_combinations))
+
+    start = 0
+    start_route = []
+    for j in size_combinations[0]:
+        sub_route = stores_no_depot[start:start + j]
+        sub_route.insert(0, stores[0])
+        start_route.append(sub_route)
+        start += j
+
+    best_cost, best = mtsp(start_route, distances)
+    best_eval = objective(best_cost)
+
+    combination_counter = 0
+    for combination in size_combinations:
+        combination_counter += 1
+        print("combination_counter:\t" + str(combination_counter))
+        route = []
+        pop = []
         for i in range(n_pop):
-            if scores[i] < best_eval:
-                best, best_eval = pop[i], scores[i]
-                print(">%d, new best f(%s) = %.3f" % (gen, pop[i], scores[i]))
-        # select parents
-        selected = [selection(pop, scores) for _ in range(n_pop)]
-        # create the next generation
-        children = list()
-        for i in range(0, n_pop, 2):
-            # get selected parents in pairs
-            p1, p2 = selected[i], selected[i + 1]
-            # crossover and mutation
-            for c in crossover(p1, p2, r_cross):
-                # mutation
-                mutation(c, r_mut)
-                # store for next generation
-                children.append(c)
-        # replace population
-        pop = children
-    return [best, best_eval]
+            pop.append(random.sample(stores_no_depot, len(stores_no_depot)))
+            pop_route = []
+            start = 0
+            for j in combination:
+                sub_route = pop[i][start:start + j]
+                sub_route.insert(0, stores[0])
+                pop_route.append(sub_route)
+                start += j
+            route.append(pop_route)
+        # enumerate generations
+        for gen in range(n_iter):
+            print("gen_counter:\t" + str(gen))
+            # evaluate all candidates in the population
+            costs = []
+            evaluations = []
+            for c in route:
+                cost, route_model = mtsp(c, distances)
+                costs.append(cost)
+                evaluation = objective(cost)
+                evaluations.append(evaluation)
+                if evaluation < best_eval:
+                    print("previous best:\t" + str(best))
+                    print("previous best eval:\t" + str(best_eval))
+                    print("total cost:\t" + str(best_cost))
+                    best, best_eval, best_cost = route_model, evaluation, cost
+                    print("new best:\t" + str(best))
+                    print("new best eval:\t" + str(best_eval))
+                    print("total cost:\t" + str(best_cost))
+
+            # select parents
+            selected = [selection(pop, evaluations) for _ in range(n_pop)]
+            # create the next generation
+            children = list()
+            for i in range(0, n_pop, 2):
+                # get selected parents in pairs
+                p1, p2 = selected[i], selected[i + 1]
+                # crossover and mutation
+                for c in crossover(p1, p2, r_cross):
+                    # mutation
+                    mutation(c, r_mut)
+                    # store for next generation
+                    children.append(c)
+            # replace population
+            pop = children
+    return [best, best_cost]
 
 
 # define the total iterations
-n_iter = 100
+n_iter = 2000
 # define the population size
 n_pop = 100
 # crossover rate
 r_cross = 0.9
 # mutation rate
-r_mut = 1.0 / float(n_bits)
+r_mut = 0.9
 # perform the genetic algorithm search
-best, score = genetic_algorithm(objective_function, n_bits, n_iter, n_pop, r_cross, r_mut)
+
+building_cost, built_stores = calc_stores(location, distance, range_param)
+print(str(built_stores))
+print(str(built_stores))
+
+best, score = genetic_algorithm(objective_function, cost_of_multiple_routes, built_stores, distance, capacity, n_iter,
+                                n_pop, r_cross,
+                                r_mut)
+
 print('Done!')
-print('f(%s) = %f' % (best, score))
+print(str(best) + ":\t" + str(score))
