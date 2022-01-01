@@ -1,5 +1,4 @@
 from math import sqrt
-from itertools import product, chain
 from sys import stdout as out
 from mip import Model, xsum, minimize, BINARY
 
@@ -67,10 +66,12 @@ def cost_of_route(this_route):
 
 # Open files dat and read file
 
-datFile = "datasets/minimart-I-50.dat"
-datFile1 = "datasets/minimart-I-100.dat"
+datFile1 = "datasets/minimart-I-50.dat"
+datFile2 = "datasets/minimart-I-100.dat"
+solution_file_path1 = "minimart-I-50-solution.txt"
+solution_file_path2 = "minimart-I-100-solution.txt"
 
-datContent = [i.strip().split() for i in open(datFile).readlines()]
+datContent = [i.strip().split() for i in open(datFile2).readlines()]
 
 param = []
 for i in datContent[:5]:
@@ -168,5 +169,29 @@ for i in range(capacity - 1, 0, -1):
         best_result = result
 
 print("BEST FOUND AT THE END IS: " + str(best_cost) + "\nWith route: " + str(best_result))
+
+solution_total_cost = best_cost + model.objective_value
+solution_opening_cost = model.objective_value
+solution_refurbishing_cost = best_cost
+opened_stores = list(map(lambda store: store+1, built_stores))
+refurbishing_tracks = best_result
+
+try:
+    with open(solution_file_path2, 'w') as solution_file:
+        solution_file.write(str(solution_total_cost) + "\n")
+        solution_file.write(str(solution_opening_cost) + "\n")
+        solution_file.write(str(solution_refurbishing_cost) + "\n")
+        solution_file.write(', '.join(map(str, opened_stores)))
+        solution_file.write("\n")
+        for track in refurbishing_tracks:
+            track.append(1)  # returning to base
+            solution_file.write(', '.join(map(str, track)))
+            # solution_file.write(str(track) + "\n")
+            solution_file.write("\n")
+
+        solution_file.close()
+except FileNotFoundError:
+    print("The 'docs' directory does not exist")
+
 
 
