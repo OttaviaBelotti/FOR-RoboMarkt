@@ -14,7 +14,7 @@ At the same time, refurbishing of the built shops must be planned out, optimizin
 > More details about the problem and all the constraints can be found in [Specifications](https://github.com/OttaviaBelotti/FOR-RoboMarkt/blob/main/Specifications.pdf).
 
 ## Solution
-The problem has been tackled by dividing it into two sub-problems: finding all the locations where to build the stores first, then planning out the refurbishing process for the chosen and built stores.
+The problem has been tackled by dividing it into two sub-problems: finding all the locations where to build the stores first, then planning out the refurbishing process for the chosen and built stores. The final code can be found in [model.py](https://github.com/OttaviaBelotti/FOR-RoboMarkt/blob/main/model.py).
 
 > More about the solution in [RoboMarkt report](https://github.com/OttaviaBelotti/FOR-RoboMarkt/blob/main/RoboMarkt%20report.pdf).
 
